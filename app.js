@@ -50,17 +50,80 @@ function canSpeak() {
   return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 }
 
+let speechReady = false;
+let preferredVoice = null;
+let speakTimer = null;
+let lastSpoken = { text: "", at: 0 };
+
+function initVoices() {
+  if (!canSpeak()) return;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices && voices.length) {
+    preferredVoice =
+      voices.find((v) => /en-US/i.test(v.lang) && /female/i.test(v.name)) ||
+      voices.find((v) => /en-US/i.test(v.lang)) ||
+      voices.find((v) => /en/i.test(v.lang)) ||
+      voices[0] ||
+      null;
+    speechReady = true;
+  }
+}
+
+if (canSpeak()) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    initVoices();
+  };
+  initVoices();
+}
+
 function speak(text) {
   if (!state.voiceOn) return;
   if (!canSpeak()) return;
 
   try {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.95;
-    u.pitch = 1.1;
-    u.volume = 1.0;
-    window.speechSynthesis.speak(u);
+    const now = Date.now();
+    if (text === lastSpoken.text && now - lastSpoken.at < 450) return;
+    lastSpoken = { text, at: now };
+
+    if (!speechReady) initVoices();
+
+    clearTimeout(speakTimer);
+    speakTimer = setTimeout(() => {
+      try {
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+
+        const u = new SpeechSynthesisUtterance(text);
+        if (preferredVoice) u.voice = preferredVoice;
+        u.rate = 0.95;
+        u.pitch = 1.1;
+        u.volume = 1.0;
+
+        u.onerror = () => {
+          // Some browsers (especially Safari) can drop speech after repeated calls.
+          // Retry once after a short delay.
+          try {
+            setTimeout(() => {
+              if (!state.voiceOn) return;
+              if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+              window.speechSynthesis.cancel();
+              const r = new SpeechSynthesisUtterance(text);
+              if (preferredVoice) r.voice = preferredVoice;
+              r.rate = 0.95;
+              r.pitch = 1.1;
+              r.volume = 1.0;
+              window.speechSynthesis.speak(r);
+            }, 120);
+          } catch {
+            return;
+          }
+        };
+
+        window.speechSynthesis.speak(u);
+      } catch {
+        return;
+      }
+    }, 40);
   } catch {
     return;
   }
@@ -469,6 +532,20 @@ function init() {
 
   // On some browsers, speech may require first user gesture.
   // The app naturally speaks after taps.
+
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      if (!canSpeak()) return;
+      try {
+        initVoices();
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      } catch {
+        return;
+      }
+    },
+    { once: true }
+  );
 }
 
 init();
