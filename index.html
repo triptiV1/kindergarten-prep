@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kids Learning (3–5)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand__title">Kids Learning</div>
+          <div class="brand__subtitle">Ages 3–5</div>
+        </div>
+        <div class="topbar__right">
+          <button id="soundBtn" class="btn btn--ghost" type="button" aria-pressed="true">
+            Voice: On
+          </button>
+          <button id="resetBtn" class="btn btn--ghost" type="button">
+            Reset
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section id="home" class="screen screen--active" aria-label="Home">
+          <div class="card">
+            <div class="card__title">Choose a game</div>
+            <div class="grid">
+              <button class="tile" data-nav="colors">
+                <div class="tile__title">Colors & Shapes</div>
+                <div class="tile__meta" id="metaColors"></div>
+              </button>
+              <button class="tile" data-nav="counting">
+                <div class="tile__title">Counting</div>
+                <div class="tile__meta" id="metaCounting"></div>
+              </button>
+              <button class="tile" data-nav="letters">
+                <div class="tile__title">Letters</div>
+                <div class="tile__meta" id="metaLetters"></div>
+              </button>
+              <button class="tile tile--accent" data-nav="prep">
+                <div class="tile__title">Kindergarten Prep</div>
+                <div class="tile__meta" id="metaPrep"></div>
+              </button>
+            </div>
+            <div class="hint" id="voiceHint"></div>
+          </div>
+        </section>
+
+        <section id="colors" class="screen" aria-label="Colors and Shapes">
+          <div class="card">
+            <div class="screen__header">
+              <button class="btn btn--ghost" data-home type="button">Home</button>
+              <div class="screen__title">Colors & Shapes</div>
+              <div class="screen__spacer"></div>
+            </div>
+            <div class="prompt" id="colorsPrompt"></div>
+            <div class="arena" id="colorsArena"></div>
+            <div class="row">
+              <button class="btn" id="colorsNext" type="button">Next</button>
+              <div class="stars" id="colorsStars"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="counting" class="screen" aria-label="Counting">
+          <div class="card">
+            <div class="screen__header">
+              <button class="btn btn--ghost" data-home type="button">Home</button>
+              <div class="screen__title">Counting</div>
+              <div class="screen__spacer"></div>
+            </div>
+            <div class="prompt" id="countingPrompt"></div>
+            <div class="counting__items" id="countingItems" aria-hidden="true"></div>
+            <div class="choices" id="countingChoices"></div>
+            <div class="row">
+              <button class="btn" id="countingNext" type="button">Next</button>
+              <div class="stars" id="countingStars"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="letters" class="screen" aria-label="Letters">
+          <div class="card">
+            <div class="screen__header">
+              <button class="btn btn--ghost" data-home type="button">Home</button>
+              <div class="screen__title">Letters</div>
+              <div class="screen__spacer"></div>
+            </div>
+            <div class="prompt" id="lettersPrompt"></div>
+            <div class="choices" id="lettersChoices"></div>
+            <div class="row">
+              <button class="btn" id="lettersNext" type="button">Next</button>
+              <div class="stars" id="lettersStars"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="prep" class="screen" aria-label="Kindergarten Prep">
+          <div class="card">
+            <div class="screen__header">
+              <button class="btn btn--ghost" data-home type="button">Home</button>
+              <div class="screen__title">Kindergarten Prep</div>
+              <div class="screen__spacer"></div>
+            </div>
+            <div class="prompt" id="prepPrompt"></div>
+            <div class="prep__step" id="prepStep"></div>
+            <div class="row">
+              <button class="btn" id="prepStart" type="button">Start</button>
+              <button class="btn" id="prepNext" type="button">Next</button>
+              <div class="stars" id="prepStars"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
