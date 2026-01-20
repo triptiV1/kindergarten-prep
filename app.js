@@ -202,10 +202,15 @@ function updateHomeMeta() {
   $("#metaPrep").textContent = `${state.progress.prep.done} done · ${state.progress.prep.stars} stars`;
 
   const hint = $("#voiceHint");
-  if (!canSpeak()) {
-    hint.textContent = "Voice may not be available in this browser.";
+  const s = speech.status();
+  if (!s.apiOk) {
+    hint.textContent = "Voice is not available in this browser.";
+  } else if (!state.voiceOn) {
+    hint.textContent = "Voice is off. Tap Voice: On to enable.";
+  } else if (!s.unlocked) {
+    hint.textContent = "Tap Test Voice once to enable voice.";
   } else {
-    hint.textContent = "Tip: Tap a game. The app will speak the question. If not, tap Test Voice.";
+    hint.textContent = "Tip: Tap a game. The app will speak the question.";
   }
 
   const soundBtn = $("#soundBtn");
@@ -520,7 +525,7 @@ function wireButtons() {
     saveState();
     updateHomeMeta();
     toast(state.voiceOn ? "Voice on" : "Voice off");
-    if (state.voiceOn) speak("Voice on");
+    if (state.voiceOn) speak("Voice on", { force: true });
   });
 
   $("#resetBtn").addEventListener("click", () => {
@@ -540,32 +545,24 @@ function wireButtons() {
   const testBtn = $("#testVoiceBtn");
   if (testBtn) {
     testBtn.addEventListener("click", () => {
-      if (!canSpeak()) {
+      const st = speech.status();
+      if (!st.apiOk) {
         toast("Voice not supported");
+        updateHomeMeta();
         return;
       }
 
-      try {
-        initVoices();
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-        const msg = "Hello! Voice is working.";
-        // Call speak directly from the button gesture.
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(msg);
-        if (preferredVoice) u.voice = preferredVoice;
-        u.rate = 0.95;
-        u.pitch = 1.1;
-        u.volume = 1.0;
-        u.onerror = () => {
-          toast("Voice blocked in browser settings");
-          const hint = $("#voiceHint");
-          if (hint) hint.textContent = "Voice may be blocked. Try Safari/Chrome settings, turn off Silent mode, or tap again.";
-        };
-        window.speechSynthesis.speak(u);
+      // Must be called from a user gesture on some browsers.
+      speech.unlock();
+      const res = speech.speak("Hello! Voice is working.", { force: true });
+      if (res.ok) {
         toast("Testing voice...");
-      } catch {
-        toast("Voice failed");
+      } else if (res.reason === "locked") {
+        toast("Tap again to enable voice");
+      } else {
+        toast("Voice blocked or unavailable");
       }
+      updateHomeMeta();
     });
   }
 
@@ -598,10 +595,9 @@ function init() {
   document.addEventListener(
     "pointerdown",
     () => {
-      if (!canSpeak()) return;
       try {
-        initVoices();
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        speech.unlock();
+        updateHomeMeta();
       } catch {
         return;
       }
