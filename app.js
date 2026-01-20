@@ -52,7 +52,6 @@ function canSpeak() {
 
 let speechReady = false;
 let preferredVoice = null;
-let speakTimer = null;
 let lastSpoken = { text: "", at: 0 };
 
 function initVoices() {
@@ -87,43 +86,36 @@ function speak(text) {
 
     if (!speechReady) initVoices();
 
-    clearTimeout(speakTimer);
-    speakTimer = setTimeout(() => {
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    window.speechSynthesis.cancel();
+
+    const u = new SpeechSynthesisUtterance(text);
+    if (preferredVoice) u.voice = preferredVoice;
+    u.rate = 0.95;
+    u.pitch = 1.1;
+    u.volume = 1.0;
+
+    u.onerror = () => {
+      // Some browsers can drop speech after repeated calls.
+      // Retry once after a short delay.
       try {
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-        window.speechSynthesis.cancel();
-
-        const u = new SpeechSynthesisUtterance(text);
-        if (preferredVoice) u.voice = preferredVoice;
-        u.rate = 0.95;
-        u.pitch = 1.1;
-        u.volume = 1.0;
-
-        u.onerror = () => {
-          // Some browsers (especially Safari) can drop speech after repeated calls.
-          // Retry once after a short delay.
-          try {
-            setTimeout(() => {
-              if (!state.voiceOn) return;
-              if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-              window.speechSynthesis.cancel();
-              const r = new SpeechSynthesisUtterance(text);
-              if (preferredVoice) r.voice = preferredVoice;
-              r.rate = 0.95;
-              r.pitch = 1.1;
-              r.volume = 1.0;
-              window.speechSynthesis.speak(r);
-            }, 120);
-          } catch {
-            return;
-          }
-        };
-
-        window.speechSynthesis.speak(u);
+        setTimeout(() => {
+          if (!state.voiceOn) return;
+          if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+          window.speechSynthesis.cancel();
+          const r = new SpeechSynthesisUtterance(text);
+          if (preferredVoice) r.voice = preferredVoice;
+          r.rate = 0.95;
+          r.pitch = 1.1;
+          r.volume = 1.0;
+          window.speechSynthesis.speak(r);
+        }, 120);
       } catch {
         return;
       }
-    }, 40);
+    };
+
+    window.speechSynthesis.speak(u);
   } catch {
     return;
   }
