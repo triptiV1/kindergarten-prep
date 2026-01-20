@@ -87,7 +87,9 @@ function speak(text) {
     if (!speechReady) initVoices();
 
     if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    window.speechSynthesis.cancel();
+    // Avoid canceling on every call (Safari/iOS can stop speaking entirely).
+    // Only clear if there is already something queued.
+    if (window.speechSynthesis.pending) window.speechSynthesis.cancel();
 
     const u = new SpeechSynthesisUtterance(text);
     if (preferredVoice) u.voice = preferredVoice;
@@ -167,7 +169,7 @@ function updateHomeMeta() {
   if (!canSpeak()) {
     hint.textContent = "Voice may not be available in this browser.";
   } else {
-    hint.textContent = "Tip: Tap a game. The app will speak the question.";
+    hint.textContent = "Tip: Tap a game. The app will speak the question. If not, tap Test Voice.";
   }
 
   const soundBtn = $("#soundBtn");
@@ -498,6 +500,38 @@ function wireButtons() {
   $("#colorsNext").addEventListener("click", () => renderColors());
   $("#countingNext").addEventListener("click", () => renderCounting());
   $("#lettersNext").addEventListener("click", () => renderLetters());
+
+  const testBtn = $("#testVoiceBtn");
+  if (testBtn) {
+    testBtn.addEventListener("click", () => {
+      if (!canSpeak()) {
+        toast("Voice not supported");
+        return;
+      }
+
+      try {
+        initVoices();
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        const msg = "Hello! Voice is working.";
+        // Call speak directly from the button gesture.
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(msg);
+        if (preferredVoice) u.voice = preferredVoice;
+        u.rate = 0.95;
+        u.pitch = 1.1;
+        u.volume = 1.0;
+        u.onerror = () => {
+          toast("Voice blocked in browser settings");
+          const hint = $("#voiceHint");
+          if (hint) hint.textContent = "Voice may be blocked. Try Safari/Chrome settings, turn off Silent mode, or tap again.";
+        };
+        window.speechSynthesis.speak(u);
+        toast("Testing voice...");
+      } catch {
+        toast("Voice failed");
+      }
+    });
+  }
 
   $("#prepStart").addEventListener("click", () => {
     const stepIndex = clamp(state.progress.prep.stepIndex, 0, PREP_STEPS.length - 1);
