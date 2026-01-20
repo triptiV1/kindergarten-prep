@@ -46,81 +46,117 @@ function toast(msg) {
   }, 1600);
 }
 
-function canSpeak() {
-  return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-}
+function createSpeechManager() {
+  const apiOk = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+  let unlocked = false;
+  let ready = false;
+  let voice = null;
+  let lastSpoken = { text: "", at: 0 };
 
-let speechReady = false;
-let preferredVoice = null;
-let lastSpoken = { text: "", at: 0 };
+  function getVoices() {
+    if (!apiOk) return [];
+    try {
+      return window.speechSynthesis.getVoices() || [];
+    } catch {
+      return [];
+    }
+  }
 
-function initVoices() {
-  if (!canSpeak()) return;
-  const voices = window.speechSynthesis.getVoices();
-  if (voices && voices.length) {
-    preferredVoice =
-      voices.find((v) => /en-US/i.test(v.lang) && /female/i.test(v.name)) ||
+  function pickVoice(voices) {
+    if (!voices.length) return null;
+    return (
+      voices.find((v) => /en-US/i.test(v.lang) && /Samantha/i.test(v.name)) ||
       voices.find((v) => /en-US/i.test(v.lang)) ||
       voices.find((v) => /en/i.test(v.lang)) ||
-      voices[0] ||
-      null;
-    speechReady = true;
+      voices[0]
+    );
   }
-}
 
-if (canSpeak()) {
-  window.speechSynthesis.onvoiceschanged = () => {
-    initVoices();
-  };
-  initVoices();
-}
+  function init() {
+    if (!apiOk) return;
+    const voices = getVoices();
+    voice = pickVoice(voices);
+    ready = voices.length > 0;
+  }
 
-function speak(text) {
-  if (!state.voiceOn) return;
-  if (!canSpeak()) return;
+  function status() {
+    return {
+      apiOk,
+      unlocked,
+      ready,
+      voices: getVoices().length,
+      voiceName: voice ? `${voice.name} (${voice.lang})` : "(none)",
+    };
+  }
 
-  try {
+  function unlock() {
+    if (!apiOk) return false;
+    unlocked = true;
+    init();
+    try {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    } catch {
+      return false;
+    }
+    return true;
+  }
+
+  function speak(text, { force = false } = {}) {
+    if (!apiOk) return { ok: false, reason: "unsupported" };
+    if (!state.voiceOn) return { ok: false, reason: "off" };
+    if (!unlocked) return { ok: false, reason: "locked" };
+
     const now = Date.now();
-    if (text === lastSpoken.text && now - lastSpoken.at < 450) return;
+    if (!force && text === lastSpoken.text && now - lastSpoken.at < 350) {
+      return { ok: true, reason: "deduped" };
+    }
     lastSpoken = { text, at: now };
 
-    if (!speechReady) initVoices();
+    init();
 
-    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    // Avoid canceling on every call (Safari/iOS can stop speaking entirely).
-    // Only clear if there is already something queued.
-    if (window.speechSynthesis.pending) window.speechSynthesis.cancel();
+    try {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      // Do not cancel constantly; Safari can become silent. Only cancel if it's already speaking.
+      if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
 
-    const u = new SpeechSynthesisUtterance(text);
-    if (preferredVoice) u.voice = preferredVoice;
-    u.rate = 0.95;
-    u.pitch = 1.1;
-    u.volume = 1.0;
-
-    u.onerror = () => {
-      // Some browsers can drop speech after repeated calls.
-      // Retry once after a short delay.
-      try {
-        setTimeout(() => {
-          if (!state.voiceOn) return;
-          if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-          window.speechSynthesis.cancel();
-          const r = new SpeechSynthesisUtterance(text);
-          if (preferredVoice) r.voice = preferredVoice;
-          r.rate = 0.95;
-          r.pitch = 1.1;
-          r.volume = 1.0;
-          window.speechSynthesis.speak(r);
-        }, 120);
-      } catch {
-        return;
-      }
-    };
-
-    window.speechSynthesis.speak(u);
-  } catch {
-    return;
+      const u = new SpeechSynthesisUtterance(text);
+      if (voice) u.voice = voice;
+      u.rate = 0.95;
+      u.pitch = 1.1;
+      u.volume = 1.0;
+      u.onerror = () => {
+        toast("Voice blocked or unavailable");
+        const hint = $("#voiceHint");
+        if (hint) {
+          hint.textContent =
+            "Voice may be blocked. Try turning off Silent mode, raising volume, or using Chrome on iPhone.";
+        }
+      };
+      window.speechSynthesis.speak(u);
+      return { ok: true, reason: "spoken" };
+    } catch {
+      return { ok: false, reason: "error" };
+    }
   }
+
+  if (apiOk) {
+    try {
+      window.speechSynthesis.onvoiceschanged = () => {
+        init();
+      };
+    } catch {
+      // ignore
+    }
+    init();
+  }
+
+  return { status, unlock, speak };
+}
+
+const speech = createSpeechManager();
+
+function speak(text, opts) {
+  speech.speak(text, opts);
 }
 
 function beep(ok) {
